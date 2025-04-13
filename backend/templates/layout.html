@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Disease Prediction Portal</title>
+    <link rel="stylesheet" href="/proxy/5000/static/style.css">
+</head>
+<body>
+    <header>
+        <div class="navbar">
+          <div class="nav-left">
+            <a href="/proxy/5000/" class="nav-link">Home</a>
+            <a href="/proxy/5000/predict/form" class="nav-link">Predict</a>
+          </div>
+          <div class="nav-right">
+            <span class="welcome-text">Welcome 👩‍⚕️</span>
+          </div>
+        </div>
+      </header> 
+    <main>
+        {% block content %}{% endblock %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div id="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </main>
+</body>
+</html>

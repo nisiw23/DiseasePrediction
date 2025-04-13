@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h2>Predict Disease Outcome</h2>
+
+<form action="/predict/" method="post">
+    <label for="disease_id">Select Disease:</label>
+    <select name="disease_id" required>
+        {% for disease in diseases %}
+            <option value="{{ disease.id }}">{{ disease.name }}</option>
+        {% endfor %}
+    </select>
+
+    <label>Age:</label>
+    <input type="number" name="age" required>
+
+    <label>Blood Pressure:</label>
+    <input type="number" name="blood_pressure" required>
+
+    <label>Glucose:</label>
+    <input type="number" name="glucose" required>
+
+    <button type="submit">Get Prediction</button>
+</form>
+{% endblock %}

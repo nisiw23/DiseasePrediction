@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h2>Add a New Disease</h2>
+
+<form action="/proxy/5000/diseases/form" method="post" enctype="multipart/form-data">
+
+    <label for="name">Disease Name:</label>
+    <input type="text" name="name" required>
+
+    <label for="description">Description:</label>
+    <input type="text" name="description">
+
+    <label for="file">Upload CSV File:</label>
+    <input type="file" name="file" accept=".csv" required>
+
+    <button type="submit">Add</button>
+</form>
+{% endblock %}
