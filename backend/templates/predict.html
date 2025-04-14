@@ -3,7 +3,7 @@
 {% block content %}
 <h2>Predict Disease Outcome</h2>
 
-<form action="/predict/" method="post">
+<form action="/proxy/5000/predict/submit" method="post">
     <label for="disease_id">Select Disease:</label>
     <select name="disease_id" required>
         {% for disease in diseases %}
