@@ -1,25 +1,66 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<h2>Predict Disease Outcome</h2>
-
 <form action="/proxy/5000/predict/submit" method="post">
     <label for="disease_id">Select Disease:</label>
-    <select name="disease_id" required>
+    <select id="disease-select" name="disease_id" required>
+        <option value="">-- Choose --</option>
         {% for disease in diseases %}
             <option value="{{ disease.id }}">{{ disease.name }}</option>
         {% endfor %}
     </select>
 
-    <label>Age:</label>
-    <input type="number" name="age" required>
+    <!-- Dynamically populated fields -->
+    <div id="form-inputs" style="margin-top: 20px;"></div>
 
-    <label>Blood Pressure:</label>
-    <input type="number" name="blood_pressure" required>
-
-    <label>Glucose:</label>
-    <input type="number" name="glucose" required>
-
-    <button type="submit">Get Prediction</button>
+    <button type="submit" id="submit-button" style="display: none; margin-top: 20px;">View Results</button>
 </form>
+
+<script>
+document.getElementById("disease-select").addEventListener("change", async function () {
+  const diseaseId = this.value;
+  const formInputsContainer = document.getElementById("form-inputs");
+  const submitButton = document.getElementById("submit-button");
+
+  formInputsContainer.innerHTML = "";
+  submitButton.style.display = "none";
+
+  if (!diseaseId) return;
+
+  try {
+    const response = await fetch(`${window.location.origin}/proxy/5000/diseases/${diseaseId}/columns`);
+    const columns = await response.json();
+
+    if (Array.isArray(columns)) {
+      columns.forEach(col => {
+        const wrapper = document.createElement("div");
+        wrapper.style.marginBottom = "15px";
+
+        const label = document.createElement("label");
+        label.textContent = col + ":";
+        label.setAttribute("for", col);
+        label.style.display = "block";
+        label.style.marginBottom = "5px";
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.name = col;
+        input.required = true;
+        input.style.width = "100%";
+        input.style.padding = "8px";
+        input.style.boxSizing = "border-box";
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        formInputsContainer.appendChild(wrapper);
+      });
+
+      submitButton.style.display = "block";
+    }
+  } catch (err) {
+    console.error("Failed to fetch columns:", err);
+  }
+});
+</script>
+
 {% endblock %}

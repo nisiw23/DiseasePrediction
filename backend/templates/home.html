@@ -14,6 +14,12 @@
     <label for="file">Upload CSV File:</label>
     <input type="file" name="file" accept=".csv" required>
 
+    <label>Model File (.h5):</label>
+    <input type="file" name="model_file" accept=".h5" required>
+
+    <label>Preprocessing File (.pkl/.json/.py/.txt):</label>
+    <input type="file" name="preprocess_file" accept=".pkl/.json/.py/.txt" required>
+
     <button type="submit">Add</button>
 </form>
 {% endblock %}

@@ -7,10 +7,11 @@ from sqlalchemy import text
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Embedding, Bidirectional, GRU, GlobalAveragePooling1D, Dense, Dropout
 from database.db import engine
+from utils.preprocessing import preprocess_inputs
 
 bp = Blueprint('predict', __name__, url_prefix='/predict')
 
-# --- Model architecture (must match training time) ---
+# --- Model architecture
 def create_model():
     atcicd_sex_age_input = Input(shape=(None,), name="acd_icd_sex_ageindex_input")
 
@@ -43,75 +44,85 @@ def predict_page():
 @bp.route('/submit', methods=['POST'])
 def handle_predict_form():
     disease_id = request.form.get("disease_id")
-    age = request.form.get("age")
-    blood_pressure = request.form.get("blood_pressure")
-    glucose = request.form.get("glucose")
-
-    input_data = {
-        "age": age,
-        "blood_pressure": blood_pressure,
-        "glucose": glucose
+    form_data = {
+        "LopNr": request.form.get("LopNr"),
+        "ATC": request.form.get("ATC"),
+        "AGE_ATC": request.form.get("AGE_ATC"),
+        "SEX": request.form.get("SEX"),
+        "INDEX_AGE": request.form.get("INDEX_AGE"),
+        "STATUS": request.form.get("STATUS"),
+        "ICD": request.form.get("ICD"),
+        "AGE_ICD": request.form.get("AGE_ICD"),
     }
 
-    with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO patients (disease_id, data, prediction_result)
-            VALUES (:disease_id, :data, :result)
-        """), {
-            "disease_id": disease_id,
-            "data": json.dumps(input_data),
-            "result": None
-        })
-
-    flash("Patient data stored successfully! Prediction will be available once the model is ready.", "success")
-    return redirect("/predict/form")
-
-# --- Predict via API (e.g., curl) ---
-@bp.route('/', methods=['POST'])
-def predict():
-    data = request.get_json()
-
-    disease_id = data.get("disease_id")
-    patient_input = data.get("input")  # array of numbers
-
-    if not disease_id or not patient_input:
-        return jsonify({"error": "Missing disease_id or input"}), 400
-
-    # Get model path for disease
+    # Get model path
     with engine.connect() as conn:
         result = conn.execute(text("SELECT model_path FROM models WHERE disease_id = :disease_id"),
                               {"disease_id": disease_id}).fetchone()
 
-        if not result:
-            return jsonify({"error": "No model found for this disease"}), 404
+    if not result:
+        flash("No model found for this disease", "error")
+        return redirect("/predict/form")
 
-        model_path = result._mapping["model_path"]
+    model_path = result._mapping["model_path"]
+    tokenizer_path = "backend/tokenizer_after.csv"
 
-    # Load model weights into recreated model
+    # Preprocess form data into model input
+    try:
+        final_input = preprocess_inputs(form_data, tokenizer_path)
+    except Exception as e:
+        flash(f"Preprocessing failed: {str(e)}", "error")
+        return redirect("/predict/form")
+
+    # Predict
     try:
         model = create_model()
         model.load_weights(model_path)
+        prediction = model.predict(final_input)[0][0]
     except Exception as e:
-        return jsonify({"error": f"Failed to load model: {str(e)}"}), 500
+        flash(f"Prediction failed: {str(e)}", "error")
+        return redirect("/predict/form")
 
-    # Run prediction
-    try:
-        input_array = np.array(patient_input).reshape(1, -1)
-        prediction = model.predict(input_array)[0][0]
-    except Exception as e:
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
-
-    # Store result
+    # Store in database
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO patients (disease_id, data, prediction_result)
             VALUES (:disease_id, :data, :result)
         """), {
             "disease_id": disease_id,
-            "data": json.dumps(patient_input),
+            "data": json.dumps(form_data),
             "result": str(prediction)
         })
 
-    return jsonify({
-        "prediction": float(prediction)
-    })
+    flash(f"Prediction result: {prediction:.4f}", "success")
+    return redirect("/predict/form")
+
+# --- Predict via JSON API (for curl/postman)
+@bp.route('/', methods=['POST'])
+def predict():
+    data = request.get_json()
+    disease_id = data.get("disease_id")
+    raw_input = data.get("input")
+
+    if not disease_id or not raw_input:
+        return jsonify({"error": "Missing disease_id or input"}), 400
+
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT model_path FROM models WHERE disease_id = :disease_id"),
+                              {"disease_id": disease_id}).fetchone()
+
+    if not result:
+        return jsonify({"error": "No model found for this disease"}), 404
+
+    model_path = result._mapping["model_path"]
+    tokenizer_path = "backend/tokenizer_after.csv"
+
+    try:
+        final_input = preprocess_inputs(raw_input, tokenizer_path)
+        model = create_model()
+        model.load_weights(model_path)
+        prediction = model.predict(final_input)[0][0]
+    except Exception as e:
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+
+    return jsonify({"prediction": float(prediction)})

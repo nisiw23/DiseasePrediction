@@ -4,6 +4,7 @@ from database.db import engine
 from werkzeug.utils import secure_filename
 import os
 import datetime
+import pandas as pd
 
 bp = Blueprint('diseases', __name__, url_prefix='/diseases')
 
@@ -42,24 +43,47 @@ def add_disease():
 def add_disease_from_form():
     name = request.form.get('name')
     description = request.form.get('description')
-    file = request.files.get('file')
+    csv_file = request.files.get('file')
+    model_file = request.files.get('model_file')
+    preprocess_file = request.files.get('preprocess_file')
 
-    if not name or not file:
-        return "Missing disease name or CSV file", 400
+    if not name or not csv_file or not model_file or not preprocess_file:
+        return "Missing required fields", 400
 
-    #Save file to backend/uploads
-    upload_folder = os.path.join("backend", "uploads")
-    os.makedirs(upload_folder, exist_ok=True)
+    # Define upload subfolders
+    base_upload_path = os.path.join("backend", "uploads")
+    csv_folder = os.path.join(base_upload_path, "DiseaseCSV")
+    model_folder = os.path.join(base_upload_path, "ModelFile")
+    preprocess_folder = os.path.join(base_upload_path, "Preprocessing")
 
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(upload_folder, filename)
-    file.save(filepath)
+    # Ensure subfolders exist
+    os.makedirs(csv_folder, exist_ok=True)
+    os.makedirs(model_folder, exist_ok=True)
+    os.makedirs(preprocess_folder, exist_ok=True)
 
-    #Save relative path in DB
-    relative_path = f"backend/uploads/{filename}"
+    # Secure filenames
+    csv_filename = secure_filename(csv_file.filename)
+    model_filename = secure_filename(model_file.filename)
+    preprocess_filename = secure_filename(preprocess_file.filename)
+
+    # Full paths
+    csv_path = os.path.join(csv_folder, csv_filename)
+    model_path = os.path.join(model_folder, model_filename)
+    preprocess_path = os.path.join(preprocess_folder, preprocess_filename)
+
+    # Save files
+    csv_file.save(csv_path)
+    model_file.save(model_path)
+    preprocess_file.save(preprocess_path)
+
+    # Relative paths for DB
+    relative_csv_path = f"backend/uploads/DiseaseCSV/{csv_filename}"
+    relative_model_path = f"backend/uploads/ModelFile/{model_filename}"
+    relative_preprocess_path = f"backend/uploads/Preprocessing/{preprocess_filename}"
 
     with engine.begin() as conn:
         try:
+            # Insert disease
             conn.execute(text("""
                 INSERT INTO diseases (name, description) 
                 VALUES (:name, :description)
@@ -67,21 +91,53 @@ def add_disease_from_form():
 
             disease_id = conn.execute(text("SELECT last_insert_rowid()")).scalar()
 
+            # Insert CSV path
             conn.execute(text("""
                 INSERT INTO csv_uploads (disease_id, filename, upload_time)
                 VALUES (:disease_id, :filename, :uploaded_at)
             """), {
                 "disease_id": disease_id,
-                "filename": relative_path,
+                "filename": relative_csv_path,
                 "uploaded_at": datetime.datetime.utcnow()
+            })
+
+            # Insert model + preprocessing paths
+            conn.execute(text("""
+                INSERT INTO models (disease_id, model_path, preprocess_path)
+                VALUES (:disease_id, :model_path, :preprocess_path)
+            """), {
+                "disease_id": disease_id,
+                "model_path": relative_model_path,
+                "preprocess_path": relative_preprocess_path
             })
 
             flash("Disease added successfully!", "success")
         except Exception as e:
+            print("ERROR:", e)
             if "UNIQUE constraint failed: diseases.name" in str(e):
                 flash("Disease already exists!", "error")
             else:
                 flash("An error occurred while adding the disease.", "error")
 
-        return redirect('/')
+    return redirect('/')
 
+
+# GET /diseases/<id>/columns - return CSV column names for dynamic form generation
+@bp.route('/<int:disease_id>/columns', methods=['GET'])
+def get_csv_columns(disease_id):
+    with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT filename FROM csv_uploads WHERE disease_id = :disease_id
+        """), {"disease_id": disease_id}).fetchone()
+
+        if not result:
+            return jsonify({"error": "CSV file not found"}), 404
+
+        csv_path = result._mapping["filename"]
+
+    try:
+        df = pd.read_csv(csv_path, nrows=1)
+        columns = list(df.columns)
+        return jsonify(columns)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

@@ -20,14 +20,75 @@
     <main>
         {% block content %}{% endblock %}
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div id="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+        {% if messages %}
+          <div id="popup-overlay">
+            <div class="popup">
+              <span class="close-btn" onclick="document.getElementById('popup-overlay').style.display='none'">&times;</span>
+              {% for category, message in messages %}
+                <div class="popup-message {{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      {% endwith %}
+      
+      <style>
+        #popup-overlay {
+          position: fixed;
+          top: 0; left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(1px); /* ← this creates the blur effect */
+          -webkit-backdrop-filter: blur(1px); /* Safari support */
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 9999;
+        }
+      
+        .popup {
+          background: rgb(117, 111, 111);
+          padding: 30px;
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+          max-width: 500px;
+          width: 90%;
+          text-align: center;
+          position: relative;
+        }
+      
+        .popup-message {
+          font-size: 20px;
+          font-weight: 500;
+          color: #155724;
+        }
+      
+        .popup-message.success {
+          color: #155724;
+          background-color: #d4edda;
+          padding: 15px;
+          border-radius: 8px;
+        }
+      
+        .popup-message.error {
+          color: #721c24;
+          background-color: #f8d7da;
+          padding: 15px;
+          border-radius: 8px;
+        }
+      
+        .close-btn {
+          position: absolute;
+          top: 10px;
+          right: 15px;
+          font-size: 22px;
+          cursor: pointer;
+          color: #888;
+        }
+      </style>
+      
+
     </main>
 </body>
 </html>
