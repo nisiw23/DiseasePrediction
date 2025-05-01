@@ -39,6 +39,8 @@ with engine.connect() as conn:
             disease_id INTEGER UNIQUE,
             csv_id INTEGER,
             model_path TEXT NOT NULL,
+            preprocess_path TEXT NOT NULL,
+            input_description_path TEXT NOT NULL,
             upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (csv_id) REFERENCES csv_uploads(id)
         );

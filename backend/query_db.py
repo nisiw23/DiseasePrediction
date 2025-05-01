@@ -2,6 +2,8 @@ from sqlalchemy import create_engine, text
 from database.db import engine
 
 with engine.begin() as conn:
+    conn.execute(text("ALTER TABLE models ADD COLUMN input_description_path TEXT"))
+
     print("\nDiseases:")
     for row in conn.execute(text("SELECT * FROM diseases")).mappings():
         print(dict(row))
