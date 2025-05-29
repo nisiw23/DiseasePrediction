@@ -7,3 +7,6 @@ uploads/
 .DS_Store
 *.h5
 *.csv
+*.pkl
+backend/misc/
+backend/static/explanations/

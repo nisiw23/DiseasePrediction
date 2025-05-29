@@ -1,6 +1,38 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<style>
+    .input-group {
+        position: relative;
+        display: inline-block;
+        margin-right: 10px;
+        margin-bottom: 10px;
+    }
+
+    .input-group textarea {
+        padding: 8px;
+        padding-right: 25px;
+        resize: both;
+        font-family: inherit;
+        min-width: 200px;
+        min-height: 50px;
+        box-sizing: border-box;
+    }
+
+    .remove-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: transparent;
+        border: none;
+        color: red;
+        font-weight: bold;
+        font-size: 14px;
+        cursor: pointer;
+        line-height: 1;
+    }
+</style>
+
 <form action="/proxy/5000/predict/submit" method="post">
     <label for="disease_id">Select Disease:</label>
     <select id="disease-select" name="disease_id" required>
@@ -15,6 +47,10 @@
 
     <!-- Dynamically populated input fields -->
     <div id="form-inputs" style="margin-top: 20px;"></div>
+
+    <!-- Hidden fields for explanation -->
+    <input type="hidden" id="hidden-disease-id" name="hidden_disease_id">
+    <input type="hidden" id="hidden-input-text" name="hidden_input_text">
 
     <button type="submit" id="submit-button" style="display: none; margin-top: 20px;">View Results</button>
 </form>
@@ -41,7 +77,6 @@ document.getElementById("disease-select").addEventListener("change", async funct
             return;
         }
 
-        // Display description box visually
         if (descData.rows) {
             const box = document.createElement("div");
             box.style.border = "2px solid #3c8dbc";
@@ -60,27 +95,60 @@ document.getElementById("disease-select").addEventListener("change", async funct
 
             descriptionBox.appendChild(box);
 
-            // Generate input fields based on the keys
             descData.rows.forEach(([key]) => {
                 const wrapper = document.createElement("div");
-                wrapper.style.marginBottom = "15px";
+                wrapper.style.marginBottom = "20px";
 
                 const label = document.createElement("label");
                 label.textContent = key + ":";
                 label.setAttribute("for", key);
                 label.style.display = "block";
                 label.style.marginBottom = "5px";
-
-                const input = document.createElement("input");
-                input.type = "text";
-                input.name = key;
-                input.required = true;
-                input.style.width = "100%";
-                input.style.padding = "8px";
-                input.style.boxSizing = "border-box";
-
                 wrapper.appendChild(label);
-                wrapper.appendChild(input);
+
+                const inputWrapper = document.createElement("div");
+                inputWrapper.classList.add("multi-input-group");
+                inputWrapper.style.display = "flex";
+                inputWrapper.style.flexWrap = "wrap";
+                inputWrapper.style.gap = "10px";
+
+                const createInputGroup = () => {
+                    const group = document.createElement("div");
+                    group.classList.add("input-group");
+
+                    const textarea = document.createElement("textarea");
+                    textarea.name = key;
+                    textarea.required = true;
+                    textarea.rows = 2;
+
+                    const removeBtn = document.createElement("button");
+                    removeBtn.innerHTML = "&times;";
+                    removeBtn.type = "button";
+                    removeBtn.classList.add("remove-btn");
+                    removeBtn.addEventListener("click", () => {
+                        inputWrapper.removeChild(group);
+                    });
+
+                    group.appendChild(textarea);
+                    group.appendChild(removeBtn);
+                    return group;
+                };
+
+                const addButton = document.createElement("button");
+                addButton.textContent = "+ Add";
+                addButton.type = "button";
+                addButton.className = "btn btn-primary";
+                addButton.style.marginBottom = "10px";
+
+                addButton.addEventListener("click", () => {
+                    const newInputGroup = createInputGroup();
+                    inputWrapper.appendChild(newInputGroup);
+                    inputWrapper.appendChild(addButton);
+                });
+
+                inputWrapper.appendChild(createInputGroup());
+                inputWrapper.appendChild(addButton);
+                wrapper.appendChild(inputWrapper);
                 formInputsContainer.appendChild(wrapper);
             });
 
@@ -91,6 +159,17 @@ document.getElementById("disease-select").addEventListener("change", async funct
         console.error("Failed to fetch input description:", err);
     }
 });
-</script>
 
+// Store disease and input into hidden fields before submission
+const formEl = document.querySelector("form");
+formEl.addEventListener("submit", () => {
+    const selectedDisease = document.getElementById("disease-select").value;
+    document.getElementById("hidden-disease-id").value = selectedDisease;
+
+    const indholdInput = document.querySelector('textarea[name="Indhold"]');
+    if (indholdInput) {
+        document.getElementById("hidden-input-text").value = indholdInput.value.trim();
+    }
+});
+</script>
 {% endblock %}
